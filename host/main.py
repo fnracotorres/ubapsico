@@ -47,7 +47,7 @@ if not len(sys.argv) >= 3:
 Uso:     ./main <Puerto>
 Ejemplo: ./main 8765"""
     )
-    exit(1)
+    sys.exit(1)
 
 port = sys.argv[1]
 bot_token = sys.argv[2]
@@ -57,7 +57,7 @@ print("Puerto:", port)
 
 if not is_valid_port(port):
     print("<Puerto> invalidado.")
-    exit(1)
+    sys.exit(1)
 
 load_dotenv()
 

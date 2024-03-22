@@ -41,18 +41,18 @@ if not len(sys.argv) >= 3:
 Uso:     ./main <Dirección IP> <Puerto>
 Ejemplo: ./main 127.0.0.1 8765"""
     )
-    exit(1)
+    sys.exit(1)
 
 ip = sys.argv[1]
 port = sys.argv[2]
 
 if not is_valid_ip(ip):
     print("<Dirección IP> invalidada.")
-    exit(1)
+    sys.exit(1)
 
 if not is_valid_port(port):
     print("<Puerto> invalidado.")
-    exit(1)
+    sys.exit(1)
 
 print("Dirección IP:", ip)
 print("Puerto:", port)
