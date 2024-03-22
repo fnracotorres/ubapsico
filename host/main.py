@@ -833,16 +833,20 @@ Si decides cambiar de opinión, estoy aquí para ayudarte en cualquier momento."
             )
 
     def is_reachable_desk(desk):
-        result = subprocess.run(
-            ["ping", "-c", "1", desk],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-
-        if result.returncode == 0:
-            return True
-        else:
+        try:
+            result = subprocess.run(
+                ["ping", "-c", "1", "-W", "5", desk],  # -W option sets timeout to 5 seconds
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=10,  # Set a longer overall timeout for the subprocess
+            )
+            if result.returncode == 0:
+                return True
+            else:
+                return False
+        except Exception as e:
+            print("An error occurred:", e)
             return False
 
     @bot.message_handler(
