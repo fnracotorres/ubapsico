@@ -1,0 +1,11 @@
+build/
+client/build
+client/dist
+host/build
+host/dist
+dist/
+**/*.sqlite
+**/*.spec
+**/*.db
+docs.md
+**/*.env

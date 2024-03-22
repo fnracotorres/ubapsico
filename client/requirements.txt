@@ -1,0 +1,5 @@
+Requests==2.31.0
+scapy==2.5.0
+schedule==1.2.1
+SQLAlchemy==2.0.28
+websockets==12.0

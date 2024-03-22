@@ -1,0 +1,5 @@
+ping3==4.0.5
+pyTelegramBotAPI==4.16.1
+python-dotenv==1.0.1
+SQLAlchemy==2.0.28
+websockets==12.0

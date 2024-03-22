@@ -1,0 +1,2 @@
+client/dist/main filter=lfs diff=lfs merge=lfs -text
+host/dist/main filter=lfs diff=lfs merge=lfs -text
