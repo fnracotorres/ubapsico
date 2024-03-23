@@ -832,22 +832,22 @@ Si decides cambiar de opinión, estoy aquí para ayudarte en cualquier momento."
                 f"Actualmente, no hay ningún Sitio asignado a ningún Desk con su Username {username}. Añada con /setsite.",
             )
 
-    def is_reachable_desk(desk):
-        try:
-            result = subprocess.run(
-                ["ping", "-c", "1", "-W", "5", desk],  # -W option sets timeout to 5 seconds
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=10,  # Set a longer overall timeout for the subprocess
-            )
-            if result.returncode == 0:
-                return True
-            else:
-                return False
-        except Exception as e:
-            print("An error occurred:", e)
-            return False
+    # def is_reachable_desk(desk):
+    #     try:
+    #         result = subprocess.run(
+    #             ["ping", "-c", "1", "-W", "5", desk],  # -W option sets timeout to 5 seconds
+    #             stdout=subprocess.PIPE,
+    #             stderr=subprocess.PIPE,
+    #             text=True,
+    #             timeout=10,  # Set a longer overall timeout for the subprocess
+    #         )
+    #         if result.returncode == 0:
+    #             return True
+    #         else:
+    #             return False
+    #     except Exception as e:
+    #         print("An error occurred:", e)
+    #         return False
 
     @bot.message_handler(
         func=lambda message: user_states.get(message.chat.id) is not None
@@ -860,27 +860,27 @@ Si decides cambiar de opinión, estoy aquí para ayudarte en cualquier momento."
 
         await bot.send_message(message.chat.id, f"El nombre del desk es: {desk_name}.")
 
-        if not is_reachable_desk(desk_name):
-            await bot.send_message(
-                message.chat.id,
-                f"No puedo alcanzar a {desk_name} en la red. Itente de nuevo, con otro nombre, o verifique el desk.",
-            )
-        else:
-            desk = Desk(name=desk_name)
-            session.add(desk)
-            username = message.from_user.username
+        # if not is_reachable_desk(desk_name):
+        #     await bot.send_message(
+        #         message.chat.id,
+        #         f"No puedo alcanzar a {desk_name} en la red. Itente de nuevo, con otro nombre, o verifique el desk.",
+        #     )
+        # else:
+        desk = Desk(name=desk_name)
+        session.add(desk)
+        username = message.from_user.username
 
-            user = session.query(User).filter(User.name == username).first()
-            user.desks.append(desk)
+        user = session.query(User).filter(User.name == username).first()
+        user.desks.append(desk)
 
-            session.commit()
+        session.commit()
 
-            user_states[message.chat.id] = UserState()
+        user_states[message.chat.id] = UserState()
 
-            await bot.send_message(
-                message.chat.id,
-                f"¡Listo! El nombre del desk {desk_name} se ha añadido correctamente",
-            )
+        await bot.send_message(
+            message.chat.id,
+            f"¡Listo! El nombre del desk {desk_name} se ha añadido correctamente",
+        )
 
     @bot.message_handler(
         func=lambda message: user_states.get(message.chat.id) is not None
