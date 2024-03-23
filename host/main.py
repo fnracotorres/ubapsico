@@ -1022,7 +1022,7 @@ def maiqwn():
                 CLIENTS.remove(websocket)
 
         async def start_server():
-            async with websockets.serve(handler, "localhost", port, ping_interval=None):
+            async with websockets.serve(handler, "0.0.0.0", port, ping_interval=None):
                 await asyncio.Future()
 
         async def start_bot():
