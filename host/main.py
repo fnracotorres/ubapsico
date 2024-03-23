@@ -993,6 +993,9 @@ def maiqwn():
                             session.query(Desk).filter(Desk.name == desk_name).first()
                         )
 
+                        if not desk:
+                            continue
+
                         speed_measurement = task["data"]
 
                         speed_measurementq = SpeedMeasurement(

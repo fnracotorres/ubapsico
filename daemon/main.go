@@ -10,14 +10,10 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
 // SpeedMeasurement represents the speed measurement data structure
 type SpeedMeasurement struct {
-	ID                uint    `gorm:"primaryKey"`
 	SendTime          string  `json:"send_time"`
 	ReceiveTime       string  `json:"receive_time"`
 	TravelTime        float64 `json:"travel_time"`
@@ -28,7 +24,6 @@ type SpeedMeasurement struct {
 var (
 	ip   string
 	port string
-	db   *gorm.DB
 )
 
 func main() {
@@ -63,16 +58,6 @@ Example: ./main 127.0.0.1 8765`)
 		os.Exit(1)
 	}
 	defer conn.Close()
-
-	// Initialize SQLite database
-	db, err = gorm.Open(sqlite.Open("speed_measurements.db"), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
-	})
-	if err != nil {
-		fmt.Println("Failed to connect to database:", err)
-		os.Exit(1)
-	}
-	db.AutoMigrate(&SpeedMeasurement{})
 
 	handleq(conn)
 
