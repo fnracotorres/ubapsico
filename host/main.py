@@ -95,6 +95,7 @@ def maiqwn():
         __tablename__ = "users"
         id = Column(Integer, primary_key=True)
         name = Column(String)
+        telegramid = Column(String)
         last_site_name_said = Column(String)
         last_desk_name_said = Column(String)
         desks = relationship(
@@ -227,7 +228,7 @@ def maiqwn():
                 user = session.query(User).filter(User.name == username).first()
 
                 if not user:
-                    user = User(name=username)
+                    user = User(name=username, telegramid=message.chat.id)
                     session.add(user)
                     session.commit()
                     print(f"User account created for {username}.")
@@ -245,22 +246,22 @@ def maiqwn():
                 message.chat.id,
                 f"""Puedo ayudarte con la gestión de la Facultad. Aquí tienes los comandos disponibles:
 
-    Puedes controlarme enviando estos comandos:
+Puedes controlarme enviando estos comandos:
 
-    <b>Sitios</b>
-    /newsite - añadir un nuevo sitio
-    /deletesite - eliminar un sitio existente
+<b>Sitios</b>
+/newsite - añadir un nuevo sitio
+/deletesite - eliminar un sitio existente
 
-    <b>Desks</b>
-    /newdesk - añadir un nuevo desk
-    /deletedesk - eliminar un desk existente
-    /setsite - asignar un sitio a un desk
+<b>Desks</b>
+/newdesk - añadir un nuevo desk
+/deletedesk - eliminar un desk existente
+/setsite - asignar un sitio a un desk
 
-    <b>Comandos</b>
-    /allstatus - obtener estado de todos los desks
-    /status - obtener estado de desks añadidos
-    /sites - obtener status de sitios
-    /load - obtener velocidad de carga (últimas 5 por desk)""",
+<b>Comandos</b>
+/allstatus - obtener estado de todos los desks
+/status - obtener estado de desks añadidos
+/sites - obtener status de sitios
+/load - obtener velocidad de carga (últimas 5 por desk)""",
                 parse_mode="HTML",
             )
 
@@ -466,38 +467,68 @@ def maiqwn():
                     measurements
                 )
 
-                text_message += f"Para {desk.name}:\n"
-                text_message += (
-                    f"    Promedio del tiempo de viaje: {average_travel_time}\n"
-                )
-                text_message += f"    Promedio de la velocidad de transmisión: {average_transmission_speed}\n\n"
+                # text_message += f"Para {desk.name}:\n"
+                # text_message += (
+                #     f"    Promedio del tiempo de viaje: {average_travel_time:.6f}\n"
+                # )
+                # text_message += f"    Promedio de la velocidad de transmisión: {average_transmission_speed:.6f}\n\n"
 
-                text_message += "    Ultimas 5 medidas de velocidad:\n"
-                for measurement in measurements[:5]:
-                    # Clasificación para travel_time
-                    if measurement.travel_time < average_travel_time:
-                        travel_time_status = "DEBAJO DEL PROMEDIO"
-                    else:
-                        travel_time_status = "ARRIBA DEL PROMEDIO"
+                # text_message += "    Ultimas 5 medidas de velocidad:\n"
+                # for measurement in measurements[:5]:
+                #     # Clasificación para travel_time
+                #     if measurement.travel_time < average_travel_time:
+                #         travel_time_status = "↓↓↓"
+                #     else:
+                #         travel_time_status = "↑↑↑"
 
-                    # Clasificación para transmission_speed
-                    if measurement.transmission_speed < average_transmission_speed:
-                        transmission_speed_status = "DEBAJO DEL PROMEDIO"
-                    else:
-                        transmission_speed_status = "ARRIBA DEL PROMEDIO"
+                #     # Clasificación para transmission_speed
+                #     if measurement.transmission_speed < average_transmission_speed:
+                #         transmission_speed_status = "↓↓↓"
+                #     else:
+                #         transmission_speed_status = "↑↑↑"
 
-                    # Imprime el estado de cada instancia
-                    text_message += f"    {measurement.id}\n"
-                    text_message += f"        Travel Time: {measurement.travel_time}\n"
-                    text_message += f"            Status: {travel_time_status}\n"
-                    text_message += f"        Transmission Speed: {measurement.transmission_speed}\n"
-                    text_message += (
-                        f"            Status: {transmission_speed_status}\n\n"
+                # Imprime el estado de cada instancia
+                # text_message += f"    {measurement.id}\n"
+                # text_message += (
+                #     f"        Hora de Envío: {float(measurement.travel_time):.6f}\n"
+                # )
+                # text_message += f"        Hora de Recepción: {float(measurement.travel_time):.6f} segundos\n"
+                # text_message += f"        Tiempo de Viaje: {float(measurement.travel_time):.6f}\n segundos"
+                # text_message += f"            Status: {travel_time_status}\n"
+                # text_message += f"        Velocidad de Transmisión: {float(measurement.transmission_speed):.6f} \n"
+                # text_message += (
+                #     f"            Status: {transmission_speed_status}\n\n"
+                # )
+
+                # text_message += f"Ruta:\n{measurement.route}\n"
+
+                more_text = ""
+                for measurement in measurements[:3]:
+                    send_time = measurement.send_time.strftime("%d/%m/%Y %H:%M:%S.%f")
+                    receive_time = measurement.receive_time.strftime(
+                        "%d/%m/%Y %H:%M:%S.%f"
                     )
+                    more_text += f"""
+Enviado el <b>{send_time}</b>
+Recivido el <b>{receive_time}</b>
+Tiempo de envío <b>{float(measurement.travel_time):.6f}s</b> <b>{"↓↓↓" if measurement.travel_time < average_travel_time else "↑↑↑"}</b>
+Velocidad de transmisión <b>{float(measurement.transmission_speed):.6f}s</b> <b>{"↓↓↓" if measurement.transmission_speed < average_transmission_speed else "↑↑↑"}</b>
+"""
 
-                    text_message += f"Trace:\n{measurement.route}\n"
+            await bot.send_message(
+                message.chat.id,
+                f"""Escritorio <b>{desk.name}</b>
 
-                await bot.send_message(message.chat.id, text_message)
+<b>Promedio</b>
+Tiempo promedio de viaje <b>{float(average_travel_time):.6f}s</b>
+Velocidad promedio de transmisión <b>{float(average_transmission_speed):.6f}s</b>
+
+<b>Últimas métricas de velocidad de carga</b>
+{more_text}
+<b>Ruta</b>
+{measurements[0].route}""",
+                parse_mode="HTML",
+            )
 
         @bot.message_handler(commands=["whosthere", "allstatus", "allreport"])
         @protected
@@ -947,11 +978,13 @@ def maiqwn():
             try:
                 await websocket.send(message)
             except websockets.ConnectionClosed:
-                pass
+                print("CONNECTION CLOSED SEND")
 
         def broadcast(message):
             for websocket in CLIENTS:
                 asyncio.create_task(send(websocket, message))
+
+        DESKS = {}
 
         async def handler(websocket):
             CLIENTS.add(websocket)
@@ -961,7 +994,25 @@ def maiqwn():
 
                     kind = task["kind"]
 
-                    if kind == "status":
+                    if kind == "hostnameset":
+                        desk_name = task["desk_name"]
+
+                        # desks_to_delete = (
+                        #     session.query(Desk).filter(Desk.name == desk_name).all()
+                        # )
+
+                        # for desk in desks_to_delete:
+                        #     session.delete(desk)
+
+                        # desk = Desk(
+                        #     name=desk_name,
+                        # )
+                        # session.add(desk)
+
+                        # session.commit()
+
+                        DESKS[websocket] = desk_name
+                    elif kind == "status":
                         message_chat_id = task["message_chat_id"]
                         desk_name = task["desk_name"]
                         print(message_chat_id)
@@ -969,18 +1020,105 @@ def maiqwn():
                         await bot.send_message(
                             message_chat_id, f"EJECUTANDOSE: {desk_name}.\n"
                         )
+                    elif kind == "getsites":
+                        desk_name = task["desk_name"]
+
+                        for username in LIST_OF_ADMIN_USERNAMES:
+                            try:
+                                user = (
+                                    session.query(User)
+                                    .filter(User.name == username)
+                                    .first()
+                                )
+
+                                if not user:
+                                    continue
+
+                                desks = user.desks
+
+                                print(f"DESKS OF USER {username}")
+                                print(desks)
+                                if not desks:
+                                    continue
+
+                                for desk in user.desks:
+                                    if desk.name == desk_name:
+                                        print("SITIOS")
+                                        sites = desk.sites
+                                        print(sites)
+
+                                        if not sites:
+                                            continue
+
+                                    site_names = []
+
+                                    for site in sites:
+                                        site_names.append(site.name)
+
+                                    response = {
+                                        "kind": "autosites",
+                                        "site_names": site_names,
+                                    }
+
+                                    json_data = json.dumps(response)
+
+                                    await send(websocket, json_data)
+                            except Exception as e:
+                                print("Error in getsites", e)
+                    elif kind == "autosite":
+                        print("Llega a AUTOSITE")
+
+                        desk_name = task["desk_name"]
+
+                        for username in LIST_OF_ADMIN_USERNAMES:
+                            try:
+                                user = (
+                                    session.query(User)
+                                    .filter(User.name == username)
+                                    .first()
+                                )
+
+                                if not user:
+                                    continue
+
+                                desks = user.desks
+
+                                if not desks:
+                                    continue
+
+                                for desk in user.desks:
+                                    if desk.name == desk_name:
+                                        text_message = (
+                                            f"Escritorio <b>{desk.name}</b>\n"
+                                        )
+                                        text_message += "\n"
+                                        text_message += "<b>Sitio</b>\n"
+
+                                        text_message += task["more_text"]
+
+                                        await bot.send_message(
+                                            user.telegramid,
+                                            text_message,
+                                            parse_mode="HTML",
+                                        )
+
+                            except Exception as e:
+                                print("Error in autosites", e)
+
                     elif kind == "sites":
                         desk_name = task["desk_name"]
 
-                        text_message = (
-                            f"Los estados de los sitios para {desk_name} son:\n"
-                        )
+                        text_message = f"Escritorio <b>{desk.name}</b>\n"
+                        text_message += "\n"
+                        text_message += "<b>Sitios</b>\n"
 
                         message_chat_id = task["message_chat_id"]
 
                         text_message += task["more_text"]
 
-                        await bot.send_message(message_chat_id, text_message)
+                        await bot.send_message(
+                            message_chat_id, text_message, parse_mode="HTML"
+                        )
 
                     elif kind == "load":
                         desk_name = task["desk_name"]
@@ -994,34 +1132,159 @@ def maiqwn():
                         )
 
                         if not desk:
-                            continue
+                            for username in LIST_OF_ADMIN_USERNAMES:
+                                try:
+                                    users = (
+                                        session.query(User)
+                                        .filter(User.name == username)
+                                        .all()
+                                    )
+                                    for user in users:
+                                        desk = Desk(name=desk_name)
+                                        user.desks.append(desk)
+                                        session.commit()
+                                        print(f"Added desk for user {username}")
+                                except Exception as e:
+                                    print(
+                                        f"Failed to add desk to user {username}: {str(e)}"
+                                    )
 
-                        speed_measurement = task["data"]
+                        if desk:
+                            speed_measurement = task["data"]
 
-                        speed_measurementq = SpeedMeasurement(
-                            send_time=datetime.strptime(
-                                speed_measurement["send_time"], "%Y-%m-%d %H:%M:%S.%f"
-                            ),
-                            receive_time=datetime.strptime(
-                                speed_measurement["receive_time"],
-                                "%Y-%m-%d %H:%M:%S.%f",
-                            ),
-                            travel_time=speed_measurement["travel_time"],
-                            transmission_speed=speed_measurement["transmission_speed"],
-                            route=speed_measurement["route"],
-                        )
+                            speed_measurementq = SpeedMeasurement(
+                                send_time=datetime.strptime(
+                                    speed_measurement["send_time"],
+                                    "%Y-%m-%d %H:%M:%S.%f",
+                                ),
+                                receive_time=datetime.strptime(
+                                    speed_measurement["receive_time"],
+                                    "%Y-%m-%d %H:%M:%S.%f",
+                                ),
+                                travel_time=speed_measurement["travel_time"],
+                                transmission_speed=speed_measurement[
+                                    "transmission_speed"
+                                ],
+                                route=speed_measurement["route"],
+                            )
 
-                        session.add(speed_measurementq)
+                            measurement = speed_measurementq
 
-                        desk.speed_measurements.append(speed_measurementq)
+                            all_measurements = session.query(SpeedMeasurement).all()
 
-                        print(f"Se agrego {speed_measurementq.id} en")
-                        print(f"{desk.id} {desk.name}")
+                            try:
+                                # Calcula la velocidad de transmisión promedio
+                                total_transmission_speed = sum(
+                                    measurement.transmission_speed
+                                    for measurement in all_measurements
+                                )
+                                avg_transmission_speed = total_transmission_speed / len(
+                                    all_measurements
+                                )
 
-                        session.commit()
+                                is_below_avg = None
+
+                                # Compara cada medición con la velocidad de transmisión promedio
+                                for measurement in all_measurements:
+                                    expected_travel_time = 5 * (
+                                        measurement.transmission_speed
+                                        / avg_transmission_speed
+                                    )
+                                    actual_travel_time = measurement.travel_time
+                                    if actual_travel_time < expected_travel_time:
+                                        print(
+                                            f"Measurement ID: {measurement.id} - Transmission speed is 5 times below average."
+                                        )
+                                        is_below_avg = True
+                                    else:
+                                        print(
+                                            f"Measurement ID: {measurement.id} - Transmission speed is not 5 times below average."
+                                        )
+                                        is_below_avg = False
+
+                                if is_below_avg:
+                                    send_time = measurement.send_time.strftime(
+                                        "%d/%m/%Y %H:%M:%S.%f"
+                                    )
+                                    receive_time = measurement.receive_time.strftime(
+                                        "%d/%m/%Y %H:%M:%S.%f"
+                                    )
+                                    text = f"""Enviado el <b>{send_time}</b>
+Recivido el <b>{receive_time}</b>
+Tiempo de envío <b>{float(measurement.travel_time):.6f}s</b>
+Velocidad de transmisión <b>{float(measurement.transmission_speed):.6f}s</b>"""
+                                    for username in LIST_OF_ADMIN_USERNAMES:
+                                        try:
+                                            users = (
+                                                session.query(User)
+                                                .filter(User.name == username)
+                                                .all()
+                                            )
+                                            for user in users:
+                                                await bot.send_message(
+                                                    user.telegramid,
+                                                    f"""<b>Alerta</b> | Escritorio <b>{desk_name}</b>
+
+<b>Métrica de velocidad de carga ↓↓↓</b>
+<b>(5 veces más lento que el promedio)</b>
+{text}""",
+                                                    parse_mode="HTML",
+                                                )
+                                                print(
+                                                    f"Message sent to user {username}"
+                                                )
+                                        except Exception as e:
+                                            print(
+                                                f"Failed to send message to user {username}: {str(e)}"
+                                            )
+                            except Exception as e:
+                                print(e)
+
+                            session.add(speed_measurementq)
+
+                            desk.speed_measurements.append(speed_measurementq)
+
+                            print(f"Se agrego {speed_measurementq.id} en")
+                            print(f"{desk.id} {desk.name}")
+
+                            session.commit()
             except websockets.ConnectionClosedError:
+                print("Connection Closed Error")
                 pass
             finally:
+                try:
+                    desk_name = DESKS[websocket]
+
+                    for username in LIST_OF_ADMIN_USERNAMES:
+                        try:
+                            users = (
+                                session.query(User).filter(User.name == username).all()
+                            )
+                            for user in users:
+                                await bot.send_message(
+                                    user.telegramid,
+                                    f"<b>Alerta</b> | Escritorio <b>{desk_name}</b> se ha desconectado",
+                                    parse_mode="HTML",
+                                )
+                                print(f"Message sent to user {username}")
+                        except Exception as e:
+                            print(
+                                f"Failed to send message to user {username}: {str(e)}"
+                            )
+
+                    print(desk_name)
+                except:
+                    print("There's no Desk Name for the connection to close")
+                # for username in LIST_OF_ADMIN_USERNAMES:
+                #     try:
+                #         await bot.send_message(
+                #             "@" + username,
+                #             f"El cliente de {desk_name} se ha desconectado.",
+                #         )
+                #         print(f"Message sent to user {username}")
+                #     except Exception as e:
+                #         print(f"Failed to send message to user {username}: {str(e)}")
+                # DESKS.pop(websocket, None)
                 CLIENTS.remove(websocket)
 
         async def start_server():

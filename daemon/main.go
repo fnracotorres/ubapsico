@@ -7,9 +7,11 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/pixelbender/go-traceroute/traceroute"
 )
 
 // SpeedMeasurement represents the speed measurement data structure
@@ -50,19 +52,60 @@ Example: ./main 127.0.0.1 8765`)
 
 	fmt.Println("IP Address:", ip)
 	fmt.Println("Port:", port)
+	ticker := time.NewTicker(12 * time.Hour)
 
 	// Initialize WebSocket connection
-	conn, _, err := websocket.DefaultDialer.Dial(fmt.Sprintf("ws://%s:%s", ip, port), nil)
-	if err != nil {
-		fmt.Println("Failed to connect to websocket:", err)
-		os.Exit(1)
+	// TODO HACER QUE
+	for {
+		conn, _, err := websocket.DefaultDialer.Dial(fmt.Sprintf("ws://%s:%s", ip, port), nil)
+		if err != nil {
+			fmt.Println("Failed to connect:", err)
+			time.Sleep(5 * time.Second) // Wait before attempting to reconnect
+			continue
+		}
+
+		fmt.Println("Connected to", fmt.Sprintf("ws://%s:%s", ip, port))
+		go handleWebSocket(conn)
+
+		// getWebsites(conn)
+		// send metrica velocidad
+		sethostnamq(conn)
+		handleq(conn)
+		cancel := make(chan struct{})
+		cancelsites := make(chan struct{})
+		go func() {
+			for {
+				select {
+				case <-ticker.C:
+					fmt.Println("TIMEEEEE")
+					handleq(conn)
+				case <-cancel:
+					return
+				}
+			}
+		}()
+		go func() {
+			for {
+				select {
+				case <-ticker.C:
+				case <-cancelsites:
+					return
+				}
+			}
+		}()
+		// Wait for the connection to close before attempting to reconnect
+		_, _, err = conn.ReadMessage()
+		if err != nil {
+			fmt.Println("Connection closed:", err)
+		}
+
+		// Close the connection
+		_ = conn.Close()
+		close(cancel)
+
+		// Wait for 5 seconds before attempting to reconnect
+		time.Sleep(5 * time.Second)
 	}
-	defer conn.Close()
-
-	handleq(conn)
-
-	// Start WebSocket communication
-	handleWebSocket(conn)
 }
 
 // Function to check if IP address is valid
@@ -74,6 +117,44 @@ func isValidIP(ip string) bool {
 func isValidPort(port string) bool {
 	_, err := strconv.Atoi(port)
 	return err == nil
+}
+
+func getWebsites(conn *websocket.Conn) {
+	sendData := func(data interface{}) error {
+		err := conn.WriteJSON(data)
+		if err != nil {
+			fmt.Println("Error sending data over WebSocket:", err)
+		}
+		return err
+	}
+
+	deskName, _ := os.Hostname()
+
+	response := map[string]interface{}{
+		"kind":      "getsites",
+		"desk_name": deskName,
+	}
+
+	sendData(response)
+}
+
+func sethostnamq(conn *websocket.Conn) {
+	// Function to send data over WebSocket connection
+	sendData := func(data interface{}) error {
+		err := conn.WriteJSON(data)
+		if err != nil {
+			fmt.Println("Error sending data over WebSocket:", err)
+		}
+		return err
+	}
+
+	deskName, _ := os.Hostname()
+
+	response := map[string]interface{}{
+		"kind":      "hostnameset",
+		"desk_name": deskName,
+	}
+	sendData(response)
 }
 
 func handleq(conn *websocket.Conn) {
@@ -157,13 +238,32 @@ func ping() (*SpeedMeasurement, error) {
 	fmt.Printf("Travel Time: %.6f seconds\n", travelTime)
 	fmt.Printf("Transmission Speed: %.6f seconds\n", transmissionSpeed)
 
+	var finalreoutetext string
+	hops, err := traceroute.Trace(net.ParseIP(ip))
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, h := range hops {
+		for _, n := range h.Nodes {
+			var formatted []string
+			for _, duration := range n.RTT {
+				formatted = append(formatted, fmt.Sprintf("%.6fs", duration.Seconds()))
+			}
+
+			formattedString := strings.Join(formatted, " ")
+			println(formattedString)
+
+			finalreoutetext += fmt.Sprintf("%d. <b>%v</b> <b>%v</b>\n", h.Distance, n.IP, formattedString)
+		}
+	}
+
 	// Create SpeedMeasurement object
 	speedMeasurement := SpeedMeasurement{
-		SendTime:          sendTime.Format("2006-01-02 15:04:05.999"),
-		ReceiveTime:       receiveTime.Format("2006-01-02 15:04:05.999"),
+		SendTime:          sendTime.Format("2006-01-02 15:04:05.999999"),
+		ReceiveTime:       receiveTime.Format("2006-01-02 15:04:05.999999"),
 		TravelTime:        travelTime,
 		TransmissionSpeed: transmissionSpeed,
-		Route:             addr.String(),
+		Route:             finalreoutetext,
 	}
 
 	return &speedMeasurement, nil
@@ -184,6 +284,8 @@ func checksum(msg []byte) uint16 {
 
 // Function to handle WebSocket communication
 func handleWebSocket(conn *websocket.Conn) {
+	defer conn.Close()
+
 	// Function to send data over WebSocket connection
 	sendData := func(data interface{}) error {
 		err := conn.WriteJSON(data)
@@ -198,15 +300,20 @@ func handleWebSocket(conn *websocket.Conn) {
 		var data interface{}
 		err := conn.ReadJSON(&data)
 		if err != nil {
-			fmt.Println("Error receiving data from WebSocket:", err)
+			// fmt.Println("Error receiving data from WebSocket:", err)
+			return nil, err
 		}
-		return data, err
+		return data, nil
 	}
 
 	// Function to check website availability
 	checkWebsite := func(siteName string) bool {
+		if !strings.HasPrefix(siteName, "http://") && !strings.HasPrefix(siteName, "https://") {
+			siteName = "http://" + siteName
+		}
+		siteName = strings.TrimSuffix(siteName, "/")
 		// Send HTTP GET request to the website
-		resp, err := http.Get("http://" + siteName)
+		resp, err := http.Get(siteName)
 		if err != nil {
 			// If there's an error, the website is considered unavailable
 			return false
@@ -269,7 +376,40 @@ func handleWebSocket(conn *websocket.Conn) {
 					sendData(response)
 				}
 			}
+		case "setsite":
+		case "autosites":
+			deskName, _ := os.Hostname()
+
+			siteNames, ok := message["site_names"].([]interface{})
+			if !ok {
+				fmt.Println("Invalid message format: 'site_names' is not a list")
+				continue
+			}
+
+			for _, siteName := range siteNames {
+				isAvailableSite := checkWebsite(siteName.(string))
+				if !isAvailableSite {
+					response := map[string]interface{}{
+						"kind":      "autosite",
+						"desk_name": deskName,
+						"more_text": fmt.Sprintf("%s <b>↓↓↓</b>\n", siteName),
+					}
+					sendData(response)
+				}
+			}
+
+			var moreText string
+			for _, siteName := range siteNames {
+				isAvailableSite := checkWebsite(siteName.(string))
+				if isAvailableSite {
+					moreText += fmt.Sprintf("%s <b>↑↑↑</b>\n", siteName)
+				} else {
+					moreText += fmt.Sprintf("%s <b>↓↓↓</b>\n", siteName)
+				}
+			}
+
 		case "sites":
+			fmt.Println("SITES")
 			deskName, _ := os.Hostname()
 
 			siteNames, ok := message["site_names"].([]interface{})
@@ -282,9 +422,9 @@ func handleWebSocket(conn *websocket.Conn) {
 			for _, siteName := range siteNames {
 				isAvailableSite := checkWebsite(siteName.(string))
 				if isAvailableSite {
-					moreText += fmt.Sprintf("    - %s FUNCIONANDO\n", siteName)
+					moreText += fmt.Sprintf("%s <b>↑↑↑</b>\n", siteName)
 				} else {
-					moreText += fmt.Sprintf("    - %s ERROR\n", siteName)
+					moreText += fmt.Sprintf("%s <b>↓↓↓</b>\n", siteName)
 				}
 			}
 
